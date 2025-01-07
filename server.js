@@ -206,7 +206,22 @@ app.get('/api/chart', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch Deezer chart data' });
   }
 });
+app.get('/api/fetchTracks/:id', async (req, res) => {
+  const { id } = req.params;
 
+  try {
+    const response = await fetch(`https://api.deezer.com/album/${id}`);
+    const data = await response.json();
+
+    if (data && data.tracks && data.tracks.data) {
+      res.json(data.tracks.data); // Send the tracks data back to the client
+    } else {
+      res.status(404).json({ message: 'Tracks not found' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching tracks', error: error.message });
+  }
+});
 
 
 app.listen(PORT, () => {
