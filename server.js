@@ -223,6 +223,22 @@ app.get('/api/fetchTracks/:id', async (req, res) => {
   }
 });
 
+app.get('/api/fetchTracks/playlist/:id', async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const response = await fetch(`https://api.deezer.com/playlist/${id}`);
+    const data = await response.json();
+
+    if (data && data.tracks && data.tracks.data) {
+      res.json(data.tracks.data); // Send the tracks data back to the client
+    } else {
+      res.status(404).json({ message: 'Tracks not found for this playlist' });
+    }
+  } catch (error) {
+    res.status(500).json({ message: 'Error fetching playlist tracks', error: error.message });
+  }
+});
 
 
 app.listen(PORT, () => {
