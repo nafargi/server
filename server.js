@@ -191,6 +191,15 @@ app.get("/api/artist/:artistId/albums", async (req, res) => {
     res.status(500).json({ success: false, message: "Internal server error" });
   }
 });
+app.get('/api/chart', async (req, res) => {
+  try {
+    const response = await axios.get('https://api.deezer.com/chart');
+    res.json(response.data);
+  } catch (error) {
+    console.error('Error fetching data from Deezer API:', error.message);
+    res.status(500).json({ error: 'Failed to fetch data from Deezer API' });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
