@@ -206,7 +206,9 @@ app.get('/api/chart', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch Deezer chart data' });
   }
 });
-app.get('/api/fetchTracks/:id', async (req, res) => {
+
+// Route to fetch album tracks
+app.get('/api/fetchTracks/album/:id', async (req, res) => {
   const { id } = req.params;
 
   try {
@@ -216,13 +218,14 @@ app.get('/api/fetchTracks/:id', async (req, res) => {
     if (data && data.tracks && data.tracks.data) {
       res.json(data.tracks.data); // Send the tracks data back to the client
     } else {
-      res.status(404).json({ message: 'Tracks not found' });
+      res.status(404).json({ message: 'Tracks not found for this album' });
     }
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching tracks', error: error.message });
+    res.status(500).json({ message: 'Error fetching album tracks', error: error.message });
   }
 });
 
+// Route to fetch playlist tracks
 app.get('/api/fetchTracks/playlist/:id', async (req, res) => {
   const { id } = req.params;
 
