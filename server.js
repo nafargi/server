@@ -246,21 +246,53 @@ app.get('/api/fetchTracks/playlist/:id', async (req, res) => {
 
 
 // Fetch artist's albums
+
+
 app.get('/api/artist/:id/albums', async (req, res) => {
   try {
     const { id } = req.params;
     const response = await fetch(`https://api.deezer.com/artist/${id}/albums`);
-    if (!response.ok) {
-      throw new Error(`Error fetching albums for artist ${id}: ${response.statusText}`);
+    
+    // Check if the response is not HTML (we expect JSON)
+    const contentType = response.headers.get('Content-Type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Expected JSON, but got something else');
     }
+
+    if (!response.ok) {
+      throw new Error(`Error fetching related album for ${id}: ${response.statusText}`);
+    }
+    
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    console.error(`Error fetching albums for artist ${id}:`, error.message);
-    res.status(500).json({ error: `Failed to fetch albums for artist ${id}` });
+    console.error(`Error fetching album for ${id}:`, error.message);
+    res.status(500).json({ error: `Failed to fetch album for ${id}` });
   }
 });
 
+app.get('/api/artist/:id/playlists', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const response = await fetch(`https://api.deezer.com/artist/${id}/playlists`);
+    
+    // Check if the response is not HTML (we expect JSON)
+    const contentType = response.headers.get('Content-Type');
+    if (!contentType || !contentType.includes('application/json')) {
+      throw new Error('Expected JSON, but got something else');
+    }
+
+    if (!response.ok) {
+      throw new Error(`Error fetching related artists for ${id}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error(`Error fetching related artists for ${id}:`, error.message);
+    res.status(500).json({ error: `Failed to fetch related artists for ${id}` });
+  }
+});
 // Fetch related artists
 app.get('/api/artist/:id/related', async (req, res) => {
   try {
