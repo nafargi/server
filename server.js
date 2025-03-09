@@ -244,11 +244,6 @@ app.get('/api/fetchTracks/playlist/:id', async (req, res) => {
 });
 
 
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
-
-
 
 // Fetch artist's albums
 app.get('/api/artist/:id/albums', async (req, res) => {
@@ -323,6 +318,9 @@ app.get('/api/artist/:id/radio', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server running on port ${port}`);
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+
