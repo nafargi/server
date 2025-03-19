@@ -354,17 +354,30 @@ app.get('/api/artist/:id/related', async (req, res) => {
 app.get('/api/artist/:id/top', async (req, res) => {
   try {
     const { id } = req.params;
-    const response = await fetch(`https://api.deezer.com/artist/${id}/top`);
-    if (!response.ok) {
-      throw new Error(`Error fetching top tracks for artist ${id}: ${response.statusText}`);
+    let allTopTracks = [];
+    let nextUrl = `https://api.deezer.com/artist/${id}/top?limit=50`; // Request more per page
+
+    while (nextUrl) {
+      const response = await fetch(nextUrl);
+      
+      if (!response.ok) {
+        throw new Error(`Error fetching top tracks for artist ${id}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      allTopTracks = allTopTracks.concat(data.data); // Append new tracks
+
+      // Check if there is another page
+      nextUrl = data.next || null;
     }
-    const data = await response.json();
-    res.json(data);
+
+    res.json({ data: allTopTracks });
   } catch (error) {
     console.error(`Error fetching top tracks for artist ${id}:`, error.message);
     res.status(500).json({ error: `Failed to fetch top tracks for artist ${id}` });
   }
 });
+
 
 // Fetch radio of the artist
 app.get('/api/artist/:id/radio', async (req, res) => {
