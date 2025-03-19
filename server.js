@@ -296,25 +296,35 @@ app.get('/api/artist/:id/albums', async (req, res) => {
 app.get('/api/artist/:id/playlists', async (req, res) => {
   try {
     const { id } = req.params;
-    const response = await fetch(`https://api.deezer.com/artist/${id}/playlists`);
-    
-    // Check if the response is not HTML (we expect JSON)
-    const contentType = response.headers.get('Content-Type');
-    if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Expected JSON, but got something else');
+    let allPlaylists = [];
+    let nextUrl = `https://api.deezer.com/artist/${id}/playlists`;
+
+    while (nextUrl) {
+      const response = await fetch(nextUrl);
+      
+      const contentType = response.headers.get('Content-Type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Expected JSON, but got something else');
+      }
+
+      if (!response.ok) {
+        throw new Error(`Error fetching playlists for ${id}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      allPlaylists = allPlaylists.concat(data.data); // Append new playlists
+
+      // Check if there is another page
+      nextUrl = data.next || null;
     }
 
-    if (!response.ok) {
-      throw new Error(`Error fetching related artists for ${id}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    res.json(data);
+    res.json({ data: allPlaylists });
   } catch (error) {
-    console.error(`Error fetching related artists for ${id}:`, error.message);
-    res.status(500).json({ error: `Failed to fetch related artists for ${id}` });
+    console.error(`Error fetching playlists for ${id}:`, error.message);
+    res.status(500).json({ error: `Failed to fetch playlists for ${id}` });
   }
 });
+
 // Fetch related artists
 app.get('/api/artist/:id/related', async (req, res) => {
   try {
