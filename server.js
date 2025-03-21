@@ -394,6 +394,17 @@ app.get('/api/artist/:id/radio', async (req, res) => {
     res.status(500).json({ error: `Failed to fetch radio for artist ${id}` });
   }
 });
+//fetch album tracks for artist page
+app.get('/api/fetchAlbumTracks/:albumId', async (req, res) => {
+  const albumId = req.params.albumId;
+  try {
+    const response = await fetch(`https://api.deezer.com/album/${albumId}/tracks`);
+    const data = await response.json();
+    res.json(data); // Return the data to the client
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch album tracks' });
+  }
+});
 
 
 app.listen(PORT, () => {
