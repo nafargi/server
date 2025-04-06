@@ -6,7 +6,7 @@ import { AudioContext } from 'web-audio-api';
 import rateLimit from 'express-rate-limit';
 
 const require = createRequire(import.meta.url);
-const { AudioContext } = NodeWebAudioApi;
+// const { AudioContext } = NodeWebAudioApi;
 
 const app = express();
 const PORT = 5000;
