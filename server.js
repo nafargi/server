@@ -2,8 +2,28 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import { createRequire } from 'module';
-// import { AudioContext } from 'web-audio-api';
-import rateLimit from 'express-rate-limit';
+const require = createRequire(import.meta.url);
+
+// Create simple rate limiter middleware
+const rateLimit = (windowMs, max) => {
+  const hits = new Map();
+  setInterval(() => hits.clear(), windowMs);
+  
+  return (req, res, next) => {
+    const ip = req.ip;
+    const hitCount = hits.get(ip) || 0;
+    
+    if (hitCount >= max) {
+      return res.status(429).json({ 
+        error: "Too many requests",
+        message: `Try again in ${windowMs/1000} seconds`
+      });
+    }
+    
+    hits.set(ip, hitCount + 1);
+    next();
+  };
+};
 
 const require = createRequire(import.meta.url);
 // const { AudioContext } = NodeWebAudioApi;
@@ -15,12 +35,7 @@ app.use(cors());
 const deezerBaseUrl = 'https://api.deezer.com';
 
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per window
-});
-app.use('/api/analyze-audio', limiter);
+app.use(rateLimit(15 * 60 * 1000, 100)); // 15 minutes, 100 requests
 
 // Audio analysis endpoint
 app.get("/api/analyze-audio", async (req, res) => {
@@ -47,7 +62,7 @@ app.get("/api/analyze-audio", async (req, res) => {
     // Get audio data as buffer
     const audioBuffer = await audioResponse.arrayBuffer();
     
-    // Simple audio analysis (no Web Audio API needed)
+    // Simple audio analysis
     const analysis = analyzeAudioBuffer(audioBuffer);
     
     res.json({
