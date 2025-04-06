@@ -4,19 +4,32 @@ import fetch from "node-fetch";
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
-// Create simple rate limiter middleware
+// Improved CORS configuration
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? 'https://your-production-domain.com' 
+    : 'http://localhost:3000',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type']
+}));
+
+// Better rate limiting
 const rateLimit = (windowMs, max) => {
   const hits = new Map();
-  setInterval(() => hits.clear(), windowMs);
+  const interval = setInterval(() => hits.clear(), windowMs);
+  
+  // Clean up interval when server stops
+  interval.unref();
   
   return (req, res, next) => {
-    const ip = req.ip;
+    const ip = req.ip || req.connection.remoteAddress;
     const hitCount = hits.get(ip) || 0;
     
     if (hitCount >= max) {
+      res.setHeader('Retry-After', Math.ceil(windowMs/1000));
       return res.status(429).json({ 
         error: "Too many requests",
-        message: `Try again in ${windowMs/1000} seconds`
+        retryAfter: Math.ceil(windowMs/1000)
       });
     }
     
@@ -25,17 +38,15 @@ const rateLimit = (windowMs, max) => {
   };
 };
 
+// Apply rate limiting only to API routes
+app.use('/api', rateLimit(60 * 1000, 60)); // 60 requests per minute
 // const require = createRequire(import.meta.url);
 // const { AudioContext } = NodeWebAudioApi;
 
 const app = express();
 const PORT = 5000;
 
-app.use(cors());
 const deezerBaseUrl = 'https://api.deezer.com';
-
-
-app.use(rateLimit(15 * 60 * 1000, 100)); // 15 minutes, 100 requests
 
 // Audio analysis endpoint
 app.get("/api/analyze-audio", async (req, res) => {
