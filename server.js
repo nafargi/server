@@ -1,6 +1,13 @@
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
+import { createRequire } from 'module';
+import { WaveFile } from 'wavefile';
+import rateLimit from 'express-rate-limit';
+import NodeWebAudioApi from 'web-audio-api';
+
+const require = createRequire(import.meta.url);
+const { AudioContext } = NodeWebAudioApi;
 
 const app = express();
 const PORT = 5000;
@@ -8,6 +15,118 @@ const PORT = 5000;
 app.use(cors());
 const deezerBaseUrl = 'https://api.deezer.com';
 
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per window
+});
+app.use('/api/analyze-audio', limiter);
+
+// Audio analysis endpoint
+app.get("/api/analyze-audio", async (req, res) => {
+  try {
+    const audioUrl = req.query.url;
+    
+    if (!audioUrl || !isValidUrl(audioUrl)) {
+      return res.status(400).json({ error: "Invalid audio URL" });
+    }
+
+    // Fetch audio stream with timeout
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    
+    const audioResponse = await fetch(audioUrl, {
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+
+    if (!audioResponse.ok) {
+      throw new Error(`Audio fetch failed with status ${audioResponse.status}`);
+    }
+
+    // Process audio
+    const analysis = await analyzeAudio(await audioResponse.arrayBuffer());
+    
+    res.json({
+      success: true,
+      ...analysis
+    });
+
+  } catch (error) {
+    console.error("Audio analysis error:", error);
+    res.status(500).json({ 
+      error: "Audio analysis failed",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+});
+
+// Audio analysis function
+async function analyzeAudio(arrayBuffer) {
+  // Create audio context
+  const audioContext = new AudioContext();
+  
+  try {
+    // Decode audio data
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    const sampleRate = audioBuffer.sampleRate;
+    const duration = audioBuffer.duration;
+    
+    // Get channel data (we'll use the first channel)
+    const channelData = audioBuffer.getChannelData(0);
+    
+    // Process audio data to extract frequencies
+    const frequencies = processAudioData(channelData, sampleRate);
+    
+    return {
+      frequencies,
+      sampleRate,
+      duration
+    };
+  } finally {
+    await audioContext.close();
+  }
+}
+
+// Process audio data to frequency bands
+function processAudioData(channelData, sampleRate) {
+  const fftSize = 2048;
+  const frequencyBands = 32;
+  const results = new Array(frequencyBands).fill(0);
+  
+  // Simple FFT simulation (in production, use a proper FFT library)
+  const samplesPerBand = Math.floor(channelData.length / frequencyBands);
+  
+  for (let band = 0; band < frequencyBands; band++) {
+    let sum = 0;
+    const start = band * samplesPerBand;
+    const end = Math.min(start + samplesPerBand, channelData.length);
+    
+    for (let i = start; i < end; i++) {
+      sum += Math.abs(channelData[i]);
+    }
+    
+    results[band] = sum / (end - start);
+  }
+  
+  // Normalize results
+  const max = Math.max(...results);
+  if (max > 0) {
+    return results.map(val => val / max);
+  }
+  
+  return results;
+}
+
+function isValidUrl(url) {
+  try {
+    new URL(url);
+    return true;
+  } catch {
+    return false;
+  }
+}
 app.get('/deezer-chart', async (req, res) => {
   try {
     const response = await fetch(`${deezerBaseUrl}/chart/0/artists`);
