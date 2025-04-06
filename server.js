@@ -10,12 +10,30 @@ app.use(cors());
 const deezerBaseUrl = 'https://api.deezer.com';
 
 
-let cachedImage = null;
-let lastFetchTime = 0;
 
-async function fetchMusicImage() {
+// Array to store multiple music-related queries
+const musicQueries = [
+  'music concert',
+  'musician',
+  'music festival',
+  'dj',
+  'vinyl records',
+  'guitar',
+  'piano',
+  'music studio',
+  'headphones',
+  'live music'
+];
+
+let currentImageIndex = 0;
+
+async function fetchRandomMusicImage() {
   try {
-    const response = await fetch('https://api.pexels.com/v1/search?query=music&per_page=1&orientation=landscape', {
+    // Rotate through different music queries
+    const query = musicQueries[currentImageIndex % musicQueries.length];
+    currentImageIndex++;
+    
+    const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=10&orientation=landscape`, {
       headers: {
         Authorization: PEXELS_API_KEY
       }
@@ -23,7 +41,13 @@ async function fetchMusicImage() {
     
     const data = await response.json();
     if (data.photos && data.photos.length > 0) {
-      return data.photos[0].src.large2x; // Returns high-quality image URL
+      // Select a random image from the 10 results
+      const randomIndex = Math.floor(Math.random() * data.photos.length);
+      return {
+        url: data.photos[randomIndex].src.large2x,
+        photographer: data.photos[randomIndex].photographer,
+        alt: data.photos[randomIndex].alt || `Music image: ${query}`
+      };
     }
     return null;
   } catch (error) {
@@ -32,23 +56,25 @@ async function fetchMusicImage() {
   }
 }
 
-// Endpoint to get music image
+// Endpoint to get current music image
 app.get('/api/music-image', async (req, res) => {
-  const currentTime = Date.now();
-  const tenMinutes = 10 * 60 * 1000; // 10 minutes in milliseconds
-
-  // If no cached image or it's older than 10 minutes
-  if (!cachedImage || (currentTime - lastFetchTime) > tenMinutes) {
-    cachedImage = await fetchMusicImage();
-    lastFetchTime = currentTime;
-  }
-
-  if (cachedImage) {
-    res.json({ imageUrl: cachedImage });
-  } else {
-    res.status(500).json({ error: 'Failed to fetch music image' });
+  try {
+    const imageData = await fetchRandomMusicImage();
+    if (imageData) {
+      res.json(imageData);
+    } else {
+      res.status(500).json({ error: 'Failed to fetch music image' });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
+
+// Background job to fetch new image every 10 minutes
+setInterval(async () => {
+  console.log('Fetching new music image...');
+  await fetchRandomMusicImage();
+}, 10 * 60 * 100); // 10 minutes
 
 app.get('/deezer-chart', async (req, res) => {
   try {
