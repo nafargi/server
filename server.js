@@ -4,6 +4,11 @@ import fetch from "node-fetch";
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 
+
+const app = express();
+const PORT = 5000;
+
+
 // Improved CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
@@ -42,10 +47,6 @@ const rateLimit = (windowMs, max) => {
 app.use('/api', rateLimit(60 * 1000, 60)); // 60 requests per minute
 // const require = createRequire(import.meta.url);
 // const { AudioContext } = NodeWebAudioApi;
-
-const app = express();
-const PORT = 5000;
-
 const deezerBaseUrl = 'https://api.deezer.com';
 
 // Audio analysis endpoint
