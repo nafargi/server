@@ -25,7 +25,7 @@ const rateLimit = (windowMs, max) => {
   };
 };
 
-const require = createRequire(import.meta.url);
+// const require = createRequire(import.meta.url);
 // const { AudioContext } = NodeWebAudioApi;
 
 const app = express();
