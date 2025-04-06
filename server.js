@@ -2,7 +2,7 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import { createRequire } from 'module';
-import { AudioContext } from 'web-audio-api';
+// import { AudioContext } from 'web-audio-api';
 import rateLimit from 'express-rate-limit';
 
 const require = createRequire(import.meta.url);
@@ -44,8 +44,11 @@ app.get("/api/analyze-audio", async (req, res) => {
       throw new Error(`Audio fetch failed with status ${audioResponse.status}`);
     }
 
-    // Process audio
-    const analysis = await analyzeAudio(await audioResponse.arrayBuffer());
+    // Get audio data as buffer
+    const audioBuffer = await audioResponse.arrayBuffer();
+    
+    // Simple audio analysis (no Web Audio API needed)
+    const analysis = analyzeAudioBuffer(audioBuffer);
     
     res.json({
       success: true,
@@ -61,47 +64,25 @@ app.get("/api/analyze-audio", async (req, res) => {
   }
 });
 
-// Audio analysis using Web Audio API
-async function analyzeAudio(arrayBuffer) {
-  const audioContext = new AudioContext();
-  
-  try {
-    // Decode audio data
-    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-    const sampleRate = audioBuffer.sampleRate;
-    const duration = audioBuffer.duration;
-    
-    // Get channel data (use first channel)
-    const channelData = audioBuffer.getChannelData(0);
-    
-    // Process audio data to extract frequencies
-    const frequencies = processAudioData(channelData, sampleRate);
-    
-    return {
-      frequencies,
-      sampleRate,
-      duration
-    };
-  } finally {
-    await audioContext.close();
-  }
-}
-
-// Process audio data to frequency bands
-function processAudioData(channelData, sampleRate) {
+// Simple audio analysis that works with raw buffer data
+function analyzeAudioBuffer(buffer) {
+  // Convert buffer to Uint8Array
+  const data = new Uint8Array(buffer);
   const frequencyBands = 32;
   const results = new Array(frequencyBands).fill(0);
   
   // Simple energy calculation per band
-  const samplesPerBand = Math.floor(channelData.length / frequencyBands);
+  const samplesPerBand = Math.floor(data.length / frequencyBands);
   
   for (let band = 0; band < frequencyBands; band++) {
     let energy = 0;
     const start = band * samplesPerBand;
-    const end = Math.min(start + samplesPerBand, channelData.length);
+    const end = Math.min(start + samplesPerBand, data.length);
     
     for (let i = start; i < end; i++) {
-      energy += Math.abs(channelData[i]);
+      // Convert unsigned to signed (-128 to 127)
+      const sample = (data[i] - 128) / 128;
+      energy += Math.abs(sample);
     }
     
     results[band] = energy / (end - start);
@@ -109,7 +90,11 @@ function processAudioData(channelData, sampleRate) {
   
   // Normalize results
   const max = Math.max(...results);
-  return max > 0 ? results.map(val => val / max) : results;
+  return {
+    frequencies: max > 0 ? results.map(val => val / max) : results,
+    sampleRate: 44100, // Assuming standard sample rate
+    duration: data.length / 44100 // Approximate duration
+  };
 }
 
 function isValidUrl(url) {
@@ -120,6 +105,7 @@ function isValidUrl(url) {
     return false;
   }
 }
+
 app.get('/deezer-chart', async (req, res) => {
   try {
     const response = await fetch(`${deezerBaseUrl}/chart/0/artists`);
