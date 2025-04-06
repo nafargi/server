@@ -2,9 +2,8 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import { createRequire } from 'module';
-import { WaveFile } from 'wavefile';
+import { AudioContext } from 'web-audio-api';
 import rateLimit from 'express-rate-limit';
-import NodeWebAudioApi from 'web-audio-api';
 
 const require = createRequire(import.meta.url);
 const { AudioContext } = NodeWebAudioApi;
@@ -62,9 +61,8 @@ app.get("/api/analyze-audio", async (req, res) => {
   }
 });
 
-// Audio analysis function
+// Audio analysis using Web Audio API
 async function analyzeAudio(arrayBuffer) {
-  // Create audio context
   const audioContext = new AudioContext();
   
   try {
@@ -73,7 +71,7 @@ async function analyzeAudio(arrayBuffer) {
     const sampleRate = audioBuffer.sampleRate;
     const duration = audioBuffer.duration;
     
-    // Get channel data (we'll use the first channel)
+    // Get channel data (use first channel)
     const channelData = audioBuffer.getChannelData(0);
     
     // Process audio data to extract frequencies
@@ -91,32 +89,27 @@ async function analyzeAudio(arrayBuffer) {
 
 // Process audio data to frequency bands
 function processAudioData(channelData, sampleRate) {
-  const fftSize = 2048;
   const frequencyBands = 32;
   const results = new Array(frequencyBands).fill(0);
   
-  // Simple FFT simulation (in production, use a proper FFT library)
+  // Simple energy calculation per band
   const samplesPerBand = Math.floor(channelData.length / frequencyBands);
   
   for (let band = 0; band < frequencyBands; band++) {
-    let sum = 0;
+    let energy = 0;
     const start = band * samplesPerBand;
     const end = Math.min(start + samplesPerBand, channelData.length);
     
     for (let i = start; i < end; i++) {
-      sum += Math.abs(channelData[i]);
+      energy += Math.abs(channelData[i]);
     }
     
-    results[band] = sum / (end - start);
+    results[band] = energy / (end - start);
   }
   
   // Normalize results
   const max = Math.max(...results);
-  if (max > 0) {
-    return results.map(val => val / max);
-  }
-  
-  return results;
+  return max > 0 ? results.map(val => val / max) : results;
 }
 
 function isValidUrl(url) {
