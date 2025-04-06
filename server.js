@@ -275,6 +275,28 @@ app.get('/api/chart', async (req, res) => {
   }
 });
 
+app.get('/api/editorial', async (req, res) => {
+  try {
+    const response = await fetch('https://api.deezer.com/editorial');
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Proxy error:', error);
+    res.status(500).json({ error: 'Failed to fetch editorial data' });
+  }
+});
+// Proxy endpoint for genre-specific charts
+app.get('/api/chart/:genreId', async (req, res) => {
+  try {
+    const { genreId } = req.params;
+    const response = await fetch(`https://api.deezer.com/chart/${genreId}`);
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Proxy error:', error);
+    res.status(500).json({ error: 'Failed to fetch genre chart data' });
+  }
+});
 // Route to fetch album tracks
 app.get('/api/fetchTracks/album/:id', async (req, res) => {
   const { id } = req.params;
