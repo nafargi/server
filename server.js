@@ -1,121 +1,12 @@
 import express from "express";
 import cors from "cors";
-
-// For Node.js < 18, use this:
-// import fetch from "node-fetch";
-// For Node.js 18+, use native fetch
+import fetch from "node-fetch";
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
-// Improved CORS configuration
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.PRODUCTION_DOMAIN // Use environment variable
-    : 'http://localhost:3000',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
-}));
-
-// Rate limiting middleware
-const rateLimit = (windowMs, max) => {
-  const hits = new Map();
-  const interval = setInterval(() => hits.clear(), windowMs);
-  interval.unref();
-  
-  return (req, res, next) => {
-    const ip = req.ip || req.connection.remoteAddress;
-    const hitCount = hits.get(ip) || 0;
-    
-    if (hitCount >= max) {
-      res.setHeader('Retry-After', Math.ceil(windowMs/1000));
-      return res.status(429).json({ 
-        error: "Too many requests",
-        retryAfter: Math.ceil(windowMs/1000)
-      });
-    }
-    
-    hits.set(ip, hitCount + 1);
-    next();
-  };
-};
-
-app.use('/api', rateLimit(60 * 1000, 60));
-
-// Audio analysis endpoint
-app.get("/api/analyze-audio", async (req, res) => {
-  try {
-    const audioUrl = req.query.url;
-    
-    if (!audioUrl || !isValidUrl(audioUrl)) {
-      return res.status(400).json({ error: "Invalid audio URL" });
-    }
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000);
-    
-    const audioResponse = await fetch(audioUrl, {
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-
-    if (!audioResponse.ok) {
-      throw new Error(`Audio fetch failed with status ${audioResponse.status}`);
-    }
-
-    const audioBuffer = await audioResponse.arrayBuffer();
-    const analysis = analyzeAudioBuffer(audioBuffer);
-    
-    res.json({
-      success: true,
-      ...analysis
-    });
-
-  } catch (error) {
-    console.error("Audio analysis error:", error);
-    res.status(500).json({ 
-      error: "Audio analysis failed",
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
-    });
-  }
-});
-
-function analyzeAudioBuffer(buffer) {
-  const data = new Uint8Array(buffer);
-  const frequencyBands = 32;
-  const results = new Array(frequencyBands).fill(0);
-  const samplesPerBand = Math.floor(data.length / frequencyBands);
-  
-  for (let band = 0; band < frequencyBands; band++) {
-    let energy = 0;
-    const start = band * samplesPerBand;
-    const end = Math.min(start + samplesPerBand, data.length);
-    
-    for (let i = start; i < end; i++) {
-      const sample = (data[i] - 128) / 128;
-      energy += Math.abs(sample);
-    }
-    
-    results[band] = energy / (end - start);
-  }
-  
-  const max = Math.max(...results);
-  return {
-    frequencies: max > 0 ? results.map(val => val / max) : results,
-    sampleRate: 44100,
-    duration: data.length / 44100
-  };
-}
-
-function isValidUrl(url) {
-  try {
-    new URL(url);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
+app.use(cors());
+const deezerBaseUrl = 'https://api.deezer.com';
 
 app.get('/deezer-chart', async (req, res) => {
   try {
@@ -519,5 +410,4 @@ app.get('/api/fetchAlbumTracks/:albumId', async (req, res) => {
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
 });
-
 
