@@ -1,29 +1,26 @@
 import express from "express";
 import cors from "cors";
-import fetch from "node-fetch";
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
 
+// For Node.js < 18, use this:
+// import fetch from "node-fetch";
+// For Node.js 18+, use native fetch
 
 const app = express();
-const PORT = 5000;
-
+const PORT = process.env.PORT || 5000;
 
 // Improved CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
-    ? 'https://your-production-domain.com' 
+    ? process.env.PRODUCTION_DOMAIN // Use environment variable
     : 'http://localhost:3000',
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type']
 }));
 
-// Better rate limiting
+// Rate limiting middleware
 const rateLimit = (windowMs, max) => {
   const hits = new Map();
   const interval = setInterval(() => hits.clear(), windowMs);
-  
-  // Clean up interval when server stops
   interval.unref();
   
   return (req, res, next) => {
@@ -43,11 +40,7 @@ const rateLimit = (windowMs, max) => {
   };
 };
 
-// Apply rate limiting only to API routes
-app.use('/api', rateLimit(60 * 1000, 60)); // 60 requests per minute
-// const require = createRequire(import.meta.url);
-// const { AudioContext } = NodeWebAudioApi;
-const deezerBaseUrl = 'https://api.deezer.com';
+app.use('/api', rateLimit(60 * 1000, 60));
 
 // Audio analysis endpoint
 app.get("/api/analyze-audio", async (req, res) => {
@@ -58,7 +51,6 @@ app.get("/api/analyze-audio", async (req, res) => {
       return res.status(400).json({ error: "Invalid audio URL" });
     }
 
-    // Fetch audio stream with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 5000);
     
@@ -71,10 +63,7 @@ app.get("/api/analyze-audio", async (req, res) => {
       throw new Error(`Audio fetch failed with status ${audioResponse.status}`);
     }
 
-    // Get audio data as buffer
     const audioBuffer = await audioResponse.arrayBuffer();
-    
-    // Simple audio analysis
     const analysis = analyzeAudioBuffer(audioBuffer);
     
     res.json({
@@ -91,14 +80,10 @@ app.get("/api/analyze-audio", async (req, res) => {
   }
 });
 
-// Simple audio analysis that works with raw buffer data
 function analyzeAudioBuffer(buffer) {
-  // Convert buffer to Uint8Array
   const data = new Uint8Array(buffer);
   const frequencyBands = 32;
   const results = new Array(frequencyBands).fill(0);
-  
-  // Simple energy calculation per band
   const samplesPerBand = Math.floor(data.length / frequencyBands);
   
   for (let band = 0; band < frequencyBands; band++) {
@@ -107,7 +92,6 @@ function analyzeAudioBuffer(buffer) {
     const end = Math.min(start + samplesPerBand, data.length);
     
     for (let i = start; i < end; i++) {
-      // Convert unsigned to signed (-128 to 127)
       const sample = (data[i] - 128) / 128;
       energy += Math.abs(sample);
     }
@@ -115,12 +99,11 @@ function analyzeAudioBuffer(buffer) {
     results[band] = energy / (end - start);
   }
   
-  // Normalize results
   const max = Math.max(...results);
   return {
     frequencies: max > 0 ? results.map(val => val / max) : results,
-    sampleRate: 44100, // Assuming standard sample rate
-    duration: data.length / 44100 // Approximate duration
+    sampleRate: 44100,
+    duration: data.length / 44100
   };
 }
 
@@ -132,6 +115,7 @@ function isValidUrl(url) {
     return false;
   }
 }
+
 
 app.get('/deezer-chart', async (req, res) => {
   try {
