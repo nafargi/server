@@ -4,7 +4,20 @@ import fetch from "node-fetch";
 
 const app = express();
 const PORT = 5000;
-const PEXELS_API_KEY = 'RKF5sutZLgxi75yhX8tWcMDchL1Z1IOI5npI4HBHLpd9jK2fCUgChto2'; // Get from https://www.pexels.com/api/
+
+// Initialize cache variables at the top level
+let cachedImage = null;
+let lastFetchTime = 0;
+// Get Pexels API key from environment variables (set in Render.com dashboard)
+const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
+
+if (!PEXELS_API_KEY) {
+  console.error('PEXELS_API_KEY environment variable is not set!');
+  process.exit(1);
+}
+
+
+
 
 app.use(cors());
 const deezerBaseUrl = 'https://api.deezer.com';
@@ -55,19 +68,21 @@ const deezerBaseUrl = 'https://api.deezer.com';
 //     return null;
 //   }
 // }
-async function fetchMusicImage({
-  query = 'music',
-  orientation = 'landscape',
-  size = 'large2x',
-  color = ''
-} = {}) {
+async function fetchMusicImage(options = {}) {
   try {
-    // Build the API URL with parameters
-    let apiUrl = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`;
-    
-    if (orientation) apiUrl += `&orientation=${orientation}`;
-    if (color) apiUrl += `&color=${encodeURIComponent(color)}`;
-    
+    const { 
+      query = 'music', 
+      orientation = 'landscape',
+      size = 'large2x',
+      color = ''
+    } = options;
+
+    const apiUrl = new URL('https://api.pexels.com/v1/search');
+    apiUrl.searchParams.append('query', query);
+    apiUrl.searchParams.append('per_page', '1');
+    apiUrl.searchParams.append('orientation', orientation);
+    if (color) apiUrl.searchParams.append('color', color);
+
     const response = await fetch(apiUrl, {
       headers: {
         Authorization: PEXELS_API_KEY
@@ -75,71 +90,58 @@ async function fetchMusicImage({
     });
 
     if (!response.ok) {
-      throw new Error(`Pexels API responded with status ${response.status}: ${await response.text()}`);
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
-    
-    if (!data.photos || data.photos.length === 0) {
-      throw new Error('No photos found matching the criteria');
-    }
-    
-    // Return the requested size or fallback to large if not available
-    return data.photos[0].src[size] || data.photos[0].src.large2x;
+    return data.photos?.[0]?.src?.[size] || null;
   } catch (error) {
-    console.error('Error in fetchMusicImage:', error);
+    console.error('Fetch error:', error);
     return null;
   }
 }
 
-
-
 app.get('/api/music-image', async (req, res) => {
   try {
-    const currentTime = Date.now();
-    const tenMinutes = 10 * 60 * 1000;
-    
-    // Get query parameters from request
     const { 
-      query = 'music', 
+      query = 'music',
       orientation = 'landscape',
       size = 'large2x',
       color = '',
       forceRefresh = 'false'
     } = req.query;
 
-    // Convert forceRefresh to boolean
     const shouldRefresh = forceRefresh.toLowerCase() === 'true';
-    
-    if (!cachedImage || shouldRefresh || (currentTime - lastFetchTime) > tenMinutes) {
-      console.log('Fetching new image from Pexels with params:', { query, orientation, size, color });
+    const currentTime = Date.now();
+    const cacheDuration = 10 * 60 * 1000; // 10 minutes
+
+    if (shouldRefresh || !cachedImage || (currentTime - lastFetchTime) > cacheDuration) {
+      console.log(`Fetching new image (refresh: ${shouldRefresh})`);
+      const newImage = await fetchMusicImage({ query, orientation, size, color });
       
-      cachedImage = await fetchMusicImage({
-        query,
-        orientation,
-        size,
-        color
-      });
-      
-      lastFetchTime = currentTime;
-      
-      if (!cachedImage) {
-        throw new Error('No image received from Pexels');
+      if (newImage) {
+        cachedImage = newImage;
+        lastFetchTime = currentTime;
+      } else if (!cachedImage) {
+        // If we have no image at all (first request failed)
+        throw new Error('Could not fetch initial image');
       }
+      // Else keep using cached image even if refresh failed
     }
 
-    res.json({ 
+    res.json({
+      success: true,
       imageUrl: cachedImage,
-      queryUsed: query,
-      orientation,
-      size,
-      timestamp: new Date(lastFetchTime).toISOString()
+      cached: !shouldRefresh && (currentTime - lastFetchTime) <= cacheDuration,
+      lastUpdated: new Date(lastFetchTime).toISOString()
     });
   } catch (error) {
-    console.error('Error in /api/music-image:', error);
-    res.status(500).json({ 
-      error: 'Failed to fetch music image',
-      details: error.message 
+    console.error('Endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      cachedImageAvailable: !!cachedImage,
+      cachedImageUrl: cachedImage || undefined
     });
   }
 });
