@@ -12,63 +12,150 @@ const deezerBaseUrl = 'https://api.deezer.com';
 
 
 // Array to store multiple music-related queries
-const musicQueries = [
-  'music concert',
-  'musician',
-  'music festival',
-  'dj',
-  'vinyl records',
-  'guitar',
-  'piano',
-  'music studio',
-  'headphones',
-  'live music'
-];
+// const musicQueries = [
+//   'music concert',
+//   'musician',
+//   'music festival',
+//   'dj',
+//   'vinyl records',
+//   'guitar',
+//   'piano',
+//   'music studio',
+//   'headphones',
+//   'live music'
+// ];
 
-let currentImageIndex = 0;
+// let currentImageIndex = 0;
 
-async function fetchRandomMusicImage() {
-  try {
-    // Rotate through different music queries
-    const query = musicQueries[currentImageIndex % musicQueries.length];
-    currentImageIndex++;
+// async function fetchRandomMusicImage() {
+//   try {
+//     // Rotate through different music queries
+//     const query = musicQueries[currentImageIndex % musicQueries.length];
+//     currentImageIndex++;
     
-    const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=10&orientation=landscape`, {
+//     const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=10&orientation=landscape`, {
+//       headers: {
+//         Authorization: PEXELS_API_KEY
+//       }
+//     });
+    
+//     const data = await response.json();
+//     if (data.photos && data.photos.length > 0) {
+//       // Select a random image from the 10 results
+//       const randomIndex = Math.floor(Math.random() * data.photos.length);
+//       return {
+//         url: data.photos[randomIndex].src.large2x,
+//         photographer: data.photos[randomIndex].photographer,
+//         alt: data.photos[randomIndex].alt || `Music image: ${query}`
+//       };
+//     }
+//     return null;
+//   } catch (error) {
+//     console.error('Error fetching image:', error);
+//     return null;
+//   }
+// }
+async function fetchMusicImage({
+  query = 'music',
+  orientation = 'landscape',
+  size = 'large2x',
+  color = ''
+} = {}) {
+  try {
+    // Build the API URL with parameters
+    let apiUrl = `https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1`;
+    
+    if (orientation) apiUrl += `&orientation=${orientation}`;
+    if (color) apiUrl += `&color=${encodeURIComponent(color)}`;
+    
+    const response = await fetch(apiUrl, {
       headers: {
         Authorization: PEXELS_API_KEY
       }
     });
+
+    if (!response.ok) {
+      throw new Error(`Pexels API responded with status ${response.status}: ${await response.text()}`);
+    }
     
     const data = await response.json();
-    if (data.photos && data.photos.length > 0) {
-      // Select a random image from the 10 results
-      const randomIndex = Math.floor(Math.random() * data.photos.length);
-      return {
-        url: data.photos[randomIndex].src.large2x,
-        photographer: data.photos[randomIndex].photographer,
-        alt: data.photos[randomIndex].alt || `Music image: ${query}`
-      };
+    
+    if (!data.photos || data.photos.length === 0) {
+      throw new Error('No photos found matching the criteria');
     }
-    return null;
+    
+    // Return the requested size or fallback to large if not available
+    return data.photos[0].src[size] || data.photos[0].src.large2x;
   } catch (error) {
-    console.error('Error fetching image:', error);
+    console.error('Error in fetchMusicImage:', error);
     return null;
   }
 }
 
-// Endpoint to get current music image
+
+
 app.get('/api/music-image', async (req, res) => {
   try {
-    const imageData = await fetchRandomMusicImage();
-    if (imageData) {
-      res.json(imageData);
-    } else {
-      res.status(500).json({ error: 'Failed to fetch music image' });
+    const currentTime = Date.now();
+    const tenMinutes = 10 * 60 * 1000;
+    
+    // Get query parameters from request
+    const { 
+      query = 'music', 
+      orientation = 'landscape',
+      size = 'large2x',
+      color = '',
+      forceRefresh = 'false'
+    } = req.query;
+
+    // Convert forceRefresh to boolean
+    const shouldRefresh = forceRefresh.toLowerCase() === 'true';
+    
+    if (!cachedImage || shouldRefresh || (currentTime - lastFetchTime) > tenMinutes) {
+      console.log('Fetching new image from Pexels with params:', { query, orientation, size, color });
+      
+      cachedImage = await fetchMusicImage({
+        query,
+        orientation,
+        size,
+        color
+      });
+      
+      lastFetchTime = currentTime;
+      
+      if (!cachedImage) {
+        throw new Error('No image received from Pexels');
+      }
     }
+
+    res.json({ 
+      imageUrl: cachedImage,
+      queryUsed: query,
+      orientation,
+      size,
+      timestamp: new Date(lastFetchTime).toISOString()
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('Error in /api/music-image:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch music image',
+      details: error.message 
+    });
   }
 });
+// Endpoint to get current music image
+// app.get('/api/music-image', async (req, res) => {
+//   try {
+//     const imageData = await fetchRandomMusicImage();
+//     if (imageData) {
+//       res.json(imageData);
+//     } else {
+//       res.status(500).json({ error: 'Failed to fetch music image' });
+//     }
+//   } catch (error) {
+//     res.status(500).json({ error: error.message });
+//   }
+// });
 
 // Background job to fetch new image every 10 minutes
 setInterval(async () => {
