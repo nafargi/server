@@ -162,6 +162,50 @@ app.get('/api/search/track', async (req, res) => {
   }
 });
 
+//fetching tracks inside playlist
+app.get('/api/playlist-tracks', async (req, res) => {
+  try {
+    const { id } = req.query;
+    if (!id) {
+      return res.status(400).json({ error: 'Playlist ID is required' });
+    }
+
+    const fetch = await import('node-fetch');
+    const response = await fetch.default(`https://api.deezer.com/playlist/${id}/tracks`);
+    
+    if (!response.ok) {
+      throw new Error(`Error fetching playlist tracks: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    
+    // Format the response to match our frontend needs
+    const formattedTracks = {
+      tracks: data.data.map(track => ({
+        id: track.id,
+        title: track.title,
+        duration: track.duration,
+        artist: {
+          id: track.artist.id,
+          name: track.artist.name,
+        },
+        album: {
+          id: track.album.id,
+          title: track.album.title,
+          cover_small: track.album.cover_small,
+          cover_medium: track.album.cover_medium,
+        },
+        preview: track.preview
+      }))
+    };
+
+    res.json(formattedTracks);
+  } catch (error) {
+    console.error('Error fetching playlist tracks:', error.message);
+    res.status(500).json({ error: 'Failed to fetch playlist tracks' });
+  }
+});
+
 // Similarly, you can add other routes for albums, artists, playlists, etc.
 app.get('/api/search/album', async (req, res) => {
   const query = req.query.q;
