@@ -160,8 +160,8 @@ app.get('/api/music-image', async (req, res) => {
 // Background job to fetch new image every 10 minutes
 setInterval(async () => {
   console.log('Fetching new music image...');
-  await fetchRandomMusicImage();
-}, 10 * 60 * 100); // 10 minutes
+  await fetchMusicImage();
+}, 10 * 60 * 60); // 10 minutes
 
 app.get('/deezer-chart', async (req, res) => {
   try {
@@ -630,6 +630,6 @@ app.get('/api/fetchAlbumTracks/:albumId', async (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`Server is running on http://localhost:${PORT}`);
-  fetchRandomMusicImage();
+  fetchMusicImage();
 });
 
