@@ -68,10 +68,37 @@ const deezerBaseUrl = 'https://api.deezer.com';
 //     return null;
 //   }
 // }
+
+
+
 async function fetchMusicImage(options = {}) {
   try {
+    // Array of 20 music-related search queries
+    const musicQueries = [
+      'music concert',
+      'music festival',
+      'vinyl records',
+      'music studio',
+      'headphones music',
+      'guitar player',
+      'piano keys',
+      'dj equipment',
+      'live band',
+      'singer performing',
+      'music notes',
+      'rock band',
+      'jazz musician',
+      'classical music',
+      'music producer',
+      'concert crowd',
+      'music instruments',
+      'music sheet',
+      'music technology',
+      'music festival stage'
+    ];
+
     const { 
-      query = 'music', 
+      query = musicQueries[Math.floor(Math.random() * musicQueries.length)], // Randomly select a music query
       orientation = 'landscape',
       size = 'large2x',
       color = ''
@@ -94,10 +121,17 @@ async function fetchMusicImage(options = {}) {
     }
     
     const data = await response.json();
-    return data.photos?.[0]?.src?.[size] || null;
+    return {
+      imageUrl: data.photos?.[0]?.src?.[size] || null,
+      queryUsed: query // Return which query was used for debugging
+    };
   } catch (error) {
     console.error('Fetch error:', error);
-    return null;
+    return {
+      imageUrl: null,
+      queryUsed: '',
+      error: error.message
+    };
   }
 }
 
