@@ -5,9 +5,7 @@ import fetch from "node-fetch";
 const app = express();
 const PORT = 5000;
 
-// Initialize cache variables at the top level
-let cachedImage = null;
-let lastFetchTime = 0;
+
 // Get Pexels API key from environment variables (set in Render.com dashboard)
 const PEXELS_API_KEY = process.env.PEXELS_API_KEY;
 
@@ -17,16 +15,10 @@ if (!PEXELS_API_KEY) {
 }
 
 
-
-
 app.use(cors());
 const deezerBaseUrl = 'https://api.deezer.com';
 
-
-
 // Cache variables
-
-
 let cachedImage = null;
 let lastFetchTime = 0;
 let lastQueryUsed = '';
