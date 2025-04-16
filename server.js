@@ -448,21 +448,53 @@ app.get('/api/fetchTracks/album/:id', async (req, res) => {
 // Route to fetch playlist tracks
 app.get('/api/fetchTracks/playlist/:id', async (req, res) => {
   const { id } = req.params;
+  
+  // Validate playlist ID
+  if (!id || isNaN(id)) {
+    return res.status(400).json({ message: 'Invalid playlist ID' });
+  }
 
   try {
     const response = await fetch(`https://api.deezer.com/playlist/${id}`);
-    const data = await response.json();
-
-    if (data && data.tracks && data.tracks.data) {
-      res.json(data.tracks.data); // Send the tracks data back to the client
-    } else {
-      res.status(404).json({ message: 'Tracks not found for this playlist' });
+    
+    // Check if the request to Deezer API was successful
+    if (!response.ok) {
+      const errorData = await response.json();
+      return res.status(response.status).json({ 
+        message: 'Error from Deezer API',
+        deezerError: errorData.error || errorData 
+      });
     }
+
+    const data = await response.json();
+    
+    // Check if tracks data exists
+    if (!data?.tracks?.data) {
+      return res.status(404).json({ 
+        message: 'No tracks found for this playlist',
+        playlistData: data // Return the full playlist data for debugging
+      });
+    }
+
+    // Return the tracks data with some additional playlist info
+    res.json({
+      tracks: data.tracks.data,
+      playlistInfo: {
+        id: data.id,
+        title: data.title,
+        cover: data.picture_medium,
+        creator: data.creator?.name
+      }
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching playlist tracks', error: error.message });
+    console.error('Error fetching playlist tracks:', error);
+    res.status(500).json({ 
+      message: 'Internal server error',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
-
 
 
 // Fetch artist's albums
