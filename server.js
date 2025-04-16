@@ -23,6 +23,68 @@ let cachedImage = null;
 let lastFetchTime = 0;
 let lastQueryUsed = '';
 
+
+
+// app.get('/api/music-image', async (req, res) => {
+//   try {
+//     const { 
+//       orientation = 'landscape',
+//       size = 'large2x',
+//       color = '',
+//       forceRefresh = 'false'
+//     } = req.query;
+
+   
+//     const shouldRefresh = forceRefresh.toLowerCase() === 'true';
+//     const currentTime = Date.now();
+//     const cacheDuration = 10 * 60 * 1000; // 10 minutes
+
+//     if (shouldRefresh || !cachedImage || (currentTime - lastFetchTime) > cacheDuration) {
+//       console.log(`Fetching new image (refresh: ${shouldRefresh})`);
+      
+//       // Randomly select a music query different from the last one
+//       let newQuery;
+//       do {
+//         newQuery = musicQueries[Math.floor(Math.random() * musicQueries.length)];
+//       } while (musicQueries.length > 1 && newQuery === lastQueryUsed);
+
+//       const newImage = await fetchMusicImage({ 
+//         query: newQuery,
+//         orientation,
+//         size,
+//         color
+//       });
+      
+//       if (newImage?.imageUrl) {
+//         cachedImage = newImage.imageUrl;
+//         lastQueryUsed = newQuery;
+//         lastFetchTime = currentTime;
+//       } else if (!cachedImage) {
+//         throw new Error('Could not fetch initial music image');
+//       }
+//       // Else keep using cached image even if refresh failed
+//     }
+
+//     res.json({
+//       success: true,
+//       imageUrl: cachedImage,
+//       queryUsed: lastQueryUsed,
+//       cached: !shouldRefresh && (currentTime - lastFetchTime) <= cacheDuration,
+//       lastUpdated: new Date(lastFetchTime).toISOString()
+//     });
+//   } catch (error) {
+//     console.error('Endpoint error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error.message,
+//       cachedImageAvailable: !!cachedImage,
+//       cachedImageUrl: cachedImage || undefined,
+//       lastQueryUsed: cachedImage ? lastQueryUsed : undefined
+//     });
+//   }
+// });
+
+// Modified fetch function (should be defined elsewhere)
 app.get('/api/music-image', async (req, res) => {
   try {
     const { 
@@ -89,68 +151,7 @@ app.get('/api/music-image', async (req, res) => {
       cachedImageUrl: cachedImage || null
     });
   }
-});
-
-// app.get('/api/music-image', async (req, res) => {
-//   try {
-//     const { 
-//       orientation = 'landscape',
-//       size = 'large2x',
-//       color = '',
-//       forceRefresh = 'false'
-//     } = req.query;
-
-   
-//     const shouldRefresh = forceRefresh.toLowerCase() === 'true';
-//     const currentTime = Date.now();
-//     const cacheDuration = 10 * 60 * 1000; // 10 minutes
-
-//     if (shouldRefresh || !cachedImage || (currentTime - lastFetchTime) > cacheDuration) {
-//       console.log(`Fetching new image (refresh: ${shouldRefresh})`);
-      
-//       // Randomly select a music query different from the last one
-//       let newQuery;
-//       do {
-//         newQuery = musicQueries[Math.floor(Math.random() * musicQueries.length)];
-//       } while (musicQueries.length > 1 && newQuery === lastQueryUsed);
-
-//       const newImage = await fetchMusicImage({ 
-//         query: newQuery,
-//         orientation,
-//         size,
-//         color
-//       });
-      
-//       if (newImage?.imageUrl) {
-//         cachedImage = newImage.imageUrl;
-//         lastQueryUsed = newQuery;
-//         lastFetchTime = currentTime;
-//       } else if (!cachedImage) {
-//         throw new Error('Could not fetch initial music image');
-//       }
-//       // Else keep using cached image even if refresh failed
-//     }
-
-//     res.json({
-//       success: true,
-//       imageUrl: cachedImage,
-//       queryUsed: lastQueryUsed,
-//       cached: !shouldRefresh && (currentTime - lastFetchTime) <= cacheDuration,
-//       lastUpdated: new Date(lastFetchTime).toISOString()
-//     });
-//   } catch (error) {
-//     console.error('Endpoint error:', error);
-//     res.status(500).json({
-//       success: false,
-//       error: error.message,
-//       cachedImageAvailable: !!cachedImage,
-//       cachedImageUrl: cachedImage || undefined,
-//       lastQueryUsed: cachedImage ? lastQueryUsed : undefined
-//     });
-//   }
-// });
-
-// Modified fetch function (should be defined elsewhere)
+}); 
 async function fetchMusicImage(options) {
   try {
     const apiUrl = new URL('https://api.pexels.com/v1/search');
@@ -185,11 +186,52 @@ async function fetchMusicImage(options) {
 }
 
 
-// Background job to fetch new image every 10 minutes
+// Background job to fetch new image every minute
 setInterval(async () => {
-  console.log('Fetching new music image...');
-  await fetchMusicImage();
-}, 10 * 60 * 60); // 10 minutes
+  try {
+    console.log('Running scheduled image refresh...');
+      const musicQueries = [
+      'music concert',
+      'music festival',
+      'vinyl records',
+      'music studio',
+      'headphones music',
+      'guitar player',
+      'piano keys',
+      'dj equipment',
+      'live band',
+      'singer performing',
+      'music notes',
+      'rock band',
+      'jazz musician',
+      'classical music',
+      'music producer',
+      'concert crowd',
+      'music instruments',
+      'music sheet',
+      'music technology',
+      'music festival stage'
+    ];
+    const randomQuery = musicQueries[Math.floor(Math.random() * musicQueries.length)];
+    
+    const result = await fetchMusicImage({
+      query: randomQuery,
+      orientation: 'landscape',
+      size: 'large2x'
+    });
+
+    if (result.imageUrl) {
+      cachedImage = result.imageUrl;
+      lastQueryUsed = randomQuery;
+      lastFetchTime = Date.now();
+      console.log('Successfully updated cached image');
+    }
+  } catch (error) {
+    console.error('Background refresh failed:', error.message);
+  }
+}, 1 * 60 * 1000); // 1 minute
+
+
 
 app.get('/deezer-chart', async (req, res) => {
   try {
